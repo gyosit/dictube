@@ -1,5 +1,6 @@
 # dictube
 Web App for dictation. Split subtitle and repeat them.
+http://dictube.alcheminfo.xyz/
 
 # 機能
 *YouTube上の任意の動画を、数秒ごとに分割しリピートできます。
