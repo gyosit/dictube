@@ -1,0 +1,21 @@
+td {
+  text-align:  left;
+}
+
+.y_head {
+  color: white;
+  background-color: blue;
+}
+.a_head {
+  color: white;
+  background-color: red;
+}
+
+.yours {
+  color: black;
+  background-color: skyblue;
+}
+.answer {
+  color: black;
+  background-color: pink;
+}

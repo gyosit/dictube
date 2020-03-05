@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<head>
+  <title>DicTUBE</title>
+  <link rel="stylesheet" type="text/css" href="/views/index.css">
+  <script src="https://code.jquery.com/jquery-3.3.1.min.js"
+  integrity="sha256-FgpCb/KJQlLNfOu91ta32o/NMZxltwRo8QtmkMRdAu8="
+  crossorigin="anonymous"> </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-cookie/1.4.1/jquery.cookie.js" integrity="sha256-uEFhyfv3UgzRTnAZ+SEgvYepKKB0FW6RqZLrqfyUNug=" crossorigin="anonymous"></script>
+</head>
+<body>
+  <input id="url" type="text" placeholder="Enter YouTube URL"> <input id="load" type="button" value="LOADING">
+  <!-- <input id="sec" type="text" value=4> second -->
+  <br>
+  <textarea id="scripts" cols="50" rows="3" placeholder="Copy the scripts here:&#13;&#10;00:00&#13;&#10;I'm learning English.&#13;&#10;00:03&#13;&#10;I'm Japanese."></textarea> <input id="redist" type="button" value="REDIST"> <br>
+  <br>
+  <iframe id="player" width="560" height="315" src="https://www.youtube.com/embed/" frameborder="0" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+  <br>
+  <textarea id="typing" cols="50" rows="3"></textarea> <input id="send" type="button" value="SEND"> <input id="repeat" type="button" value="REPEAT"> <br>
+  <br>
+  <!-- <input id="download" type="button" value="DOWNLOAD"> -->
+  <table>
+    <tr><th class="y_head">Yours</th><th class="a_head">Answers</th></tr>
+  </table>
+  <script>
+  $(function(){
+    var xml;
+    var START = "0:00";
+    var END = "0:00";
+    var TEXT = "";
+    var SCRIPTS = [];
+    var INDEX = 0;
+
+    async function downloadXML(video_id){
+      //en-GB
+      await $.get('http://video.google.com/timedtext?lang=en&v=' + video_id, function(res){
+        xml = res;
+        var period = $('#sec').val();
+        searchTime(xml, 0, period);
+        var start = START;
+        var end = END;
+        reoad(start, end);
+      });
+    }
+
+    function searchTime(xml, start_t, period){
+      start_t = parseFloat(start_t);
+      period = parseFloat(period);
+      var during = 0;
+      var fulltext = "";
+      var video_id = $("#url").val()
+
+      $('text', xml).each(function(){
+        start = parseFloat($(this).attr('start'), 10);
+        dur = parseFloat($(this).attr('dur'), 10);
+        text = $(this).text();
+        text = text.replace(/(\r\n|\n|\r)/gm, ' ');
+        text = text.replace('&#39;', '\'');
+        text = text.replace('↵', ' ');
+        console.log(text);
+    
+        if(start >= start_t){
+          if(during+dur > period && during > 0) return false;
+            if(during == 0) START = start;
+            during += dur;
+            fulltext += text;
+        }
+      });
+
+      console.log(fulltext);
+      start = parseFloat(START);
+      end = start*100 + during*100;
+      end /= 100;
+      console.log(end)
+      TEXT = fulltext;
+      START = start;
+      END = end;
+    }
+
+    function searchTime2(INDEX){
+      START = SCRIPTS[INDEX];
+      END = SCRIPTS[INDEX+2];
+      TEXT = SCRIPTS[INDEX+1];
+    }
+
+    function parseTime(str_time){
+      console.log(str_time);
+      parsed = str_time.split(":");
+      return parsed[0] * 60 + parsed[1];
+    }
+
+    function repeatTube(start){
+      start = Math.floor(start);
+      var $playerWindow = $('#player')[0].contentWindow;
+      $playerWindow.postMessage(JSON.stringify({event: 'command', func: 'seekTo', args: [start, true]}), '*');
+      $playerWindow.postMessage(JSON.stringify({event:"command",func:"playVideo",args:[]}), '*');
+    }
+
+    function reload(start, end){
+      start = parseTime(start);
+      end = parseTime(end);
+      var video_id = $("#url").val().split("v=")[1]
+      start = Math.floor(start);
+      end = Math.ceil(end)+1;
+      $('#player').attr('src', "https://www.youtube.com/embed/" + video_id + "?enablejsapi=1&start="+start+"&end="+end);
+    }
+
+    $('#load').click(function(){
+      START = "0:00";
+      INDEX = 0
+      $('table').html('<table>\n<tr><th class="y_head">Yours</th><th class="a_head">Answers</th></tr>\n</table>');
+      var video_id = $("#url").val().split("v=")[1]
+      console.log(video_id)
+      //downloadXML(video_id);
+      reload(START, END);
+    });
+
+    $('#redist').click(function(){
+      INDEX = 0
+      var all_scripts = $('#scripts').val();
+      SCRIPTS = all_scripts.split('\n');
+      START = SCRIPTS[0];
+      END = SCRIPTS[2];
+      TEXT = SCRIPTS[1];
+      reload(START, END);
+    });
+
+    $('#send').click(function(){
+      yours = $('#typing').val();
+      fulltext = TEXT;
+      $('table').append("<tr><td class=\"yours\">"+yours+"</td><td class=\"answer\">"+fulltext+"</td></tr>");
+
+      var start = END;
+      var period = $('#sec').val();
+      //searchTime(xml, start, period);
+      INDEX += 2;
+      console.log(SCRIPTS[INDEX])
+      searchTime2(INDEX);
+      var start = START;
+      var end = END;
+      reload(start, end)
+      repeatTube(start);
+
+      $('#typing').val("");
+    })
+
+    $('#repeat').click(function(){
+      var start = parseTime(START);
+      repeatTube(start);
+    })
+
+    $('#download').click(function(){
+      var i = 1;
+      var txt = "";
+      $('table').each(function(){
+        $(this).find('td').each(function(){
+          console.log($(this).text());
+          if(i>0) txt += $(this).text();
+          else txt += ","+$(this).text()+"\r\n";
+          i *= -1;
+        })
+      })
+      console.log(txt);
+
+      var downloadData = new Blob([txt], {type: "text/csv"});
+      var downloadUrl  = (window.URL || window.webkitURL).createObjectURL(downloadData);
+      var link = document.createElement("a");
+      link.href = downloadUrl;
+      link.download = "download.csv";
+      link.click();
+      (window.URL || window.webkitURL).revokeObjectURL(downloadUrl);
+    });
+
+    $('#typing').keyup(function(e){
+      if(e.keyCode === 13){
+        $('#send').click();
+        return false;
+      }
+      if(event.shiftKey){
+        if(event.ctrlKey){
+          $('#repeat').click();
+          return false;
+        }
+    }
+    });
+});
+  </script>
+</body>
